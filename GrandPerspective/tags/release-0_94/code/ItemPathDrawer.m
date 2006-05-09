@@ -1,0 +1,78 @@
+#import "ItemPathDrawer.h"
+
+#import "Item.h"
+#import "TreeLayoutBuilder.h"
+
+
+@interface ItemPathDrawer (PrivateMethods)
+
+// Implicitly implement "TreeLayoutTraverser" protocol.
+- (BOOL) descendIntoItem:(Item*)item atRect:(NSRect)rect depth:(int)depth;
+
+@end
+
+
+@implementation ItemPathDrawer
+
+- (void) setHighlightPathEndPoint:(BOOL)option {
+  highlightPathEndPoint = option;
+}
+
+
+- (void) drawItemPath:(NSArray*)path tree:(Item*)tree 
+           usingLayoutBuilder:(TreeLayoutBuilder*)layoutBuilder
+           bounds:(NSRect)bounds {
+
+  drawPath = path; // Not retaining it. It's only needed during this method.
+
+  // Align the path with the tree, as the path may contain invisible items
+  // not part of the tree.
+  drawPathIndex = 0;
+  while ([path objectAtIndex:drawPathIndex] != tree) {
+    drawPathIndex++;
+  }
+  
+  lastBezierPath = nil;
+  
+  id  traverser = self;  
+  [layoutBuilder layoutItemTree:tree inRect:bounds traverser:traverser];
+  
+  if (lastBezierPath!=nil) {
+    [[NSColor selectedControlColor] set];
+      
+    if (highlightPathEndPoint) {
+      [lastBezierPath setLineWidth:2];
+    }
+    
+    [lastBezierPath stroke];
+  }
+
+  drawPath = nil;
+}
+
+@end // @implementation ItemPathDrawer
+
+
+@implementation ItemPathDrawer (PrivateMethods)
+
+- (BOOL) descendIntoItem:(Item*)item atRect:(NSRect)rect depth:(int)depth {
+  if (drawPathIndex >= [drawPath count] 
+        || [drawPath objectAtIndex:drawPathIndex]!=item) {
+    return NO;
+  }
+
+  drawPathIndex++;
+
+  if (![item isVirtual] && depth > 0) {
+    lastBezierPath = [NSBezierPath bezierPathWithRect:rect];
+    
+    [[NSColor secondarySelectedControlColor] set];
+
+    [lastBezierPath stroke];
+  }
+
+  return YES;
+}
+
+@end // @implementation ItemPathDrawer (PrivateMethods)
+

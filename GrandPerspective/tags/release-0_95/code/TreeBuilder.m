@@ -1,0 +1,263 @@
+#import "TreeBuilder.h"
+
+#import "CompoundItem.h"
+#import "DirectoryItem.h" // Also imports FileItem.h
+
+
+/* Set the bulk request size so that bulkCatalogInfo fits in exactly four VM 
+ * pages. This is a good balance between the iteration I/O overhead and the 
+ * risk of incurring additional I/O from additional memory allocation.
+ *
+ * (Source: Code derived from source code of Disk Inventory X by Tjark Derlien.
+ *  This particular bit of code contributed by Dave Payne from Apple?)
+ */
+#define BULK_CATALOG_REQUEST_SIZE  ( (4096 * 16) / ( sizeof(FSCatalogInfo) + \
+                                                     sizeof(FSRef) + \
+                                                     sizeof(HFSUniStr255) ) )
+#define CATALOG_INFO_BITMAP  ( kFSCatInfoNodeFlags | \
+                               kFSCatInfoDataSizes | \
+                               kFSCatInfoRsrcSizes )
+
+// TODO: Don't make global?
+static struct {
+    FSCatalogInfo  catalogInfoArray[BULK_CATALOG_REQUEST_SIZE];
+	FSRef          fsRefArray[BULK_CATALOG_REQUEST_SIZE];
+	HFSUniStr255   namesArray[BULK_CATALOG_REQUEST_SIZE];
+} bulkCatalogInfo;
+
+
+@interface TreeBuilder (PrivateMethods)
+
+// Assumes that the array may be destructively modified.
+- (Item*) createTreeForItems:(NSMutableArray*)items;
+  
+- (BOOL) buildTreeForDirectory:(DirectoryItem*)dirItem 
+           parentPath:(NSString*)parentPath ref:(FSRef*)ref;
+
+@end // @interface TreeBuilder (PrivateMethods)
+
+
+@interface FSRefObject : NSObject {
+@public
+  FSRef  ref;
+}
+
+- (id) initWithFSRef:(FSRef*)ref;
+
+@end // @interface FSRefObject
+
+
+@implementation FSRefObject
+
+// Overrides super's designated initialiser.
+- (id) init {
+  NSAssert(NO, @"Use initWithFSRef instead.");
+}
+
+- (id) initWithFSRef:(FSRef*)refVal {
+  if (self = [super init]) {
+    ref = *refVal;
+  }
+
+  return self;
+}
+
+@end // @implementation FSRefObject
+
+
+@implementation TreeBuilder
+
+- (id) init {
+  if (self = [super init]) {
+    abort = NO;
+  }
+  return self;
+}
+
+
+- (void) abort {
+  abort = YES;
+}
+
+
+- (FileItem*) buildTreeForPath:(NSString*)path {
+  FSRef  rootRef;
+  Boolean  isDir;
+
+  OSStatus  status = FSPathMakeRef( [path UTF8String], &rootRef, &isDir );
+  
+  NSAssert(isDir, @"Root is not a directory.");
+  
+  DirectoryItem*  rootItem = 
+    [[[DirectoryItem alloc] initWithName:path parent:nil] autorelease];
+
+  BOOL  ok = [self buildTreeForDirectory:rootItem parentPath:@"" ref:&rootRef];
+
+  return ok ? rootItem : nil;
+}
+
+@end // @implementation TreeBuilder
+
+
+@implementation TreeBuilder (PrivateMethods)
+
+// Builds a binary tree that is as balanced as possible. This method totally
+// ignores the sizes of the items so this tree is not ideal for visual
+// lay-out (although not too bad actually). The main reason a balanced tree
+// is returned, however, is because that way it can still be iterated over
+// recursively without a serious chance of a stack overflow.  
+- (Item*) createTreeForItems:(NSMutableArray*)items {
+  int  curCount = [items count];
+  
+  if (curCount == 0) {
+    return nil;
+  }
+  else if (curCount == 1) {
+    return [items objectAtIndex:0];
+  }
+  
+  Item  *carryOver = nil;
+  do {
+    int  oldCount = curCount;
+    int  oldPos = 0; 
+    
+    curCount = 0;
+
+    if (carryOver != nil) {
+      Item  *newItem = 
+        [[CompoundItem alloc] initWithFirst: carryOver
+                                     second: [items objectAtIndex:oldPos++]];
+      [items replaceObjectAtIndex:curCount++ withObject:newItem];
+      carryOver = nil;
+    }
+
+    while (oldPos < oldCount) {
+      if (oldPos == oldCount - 1) {
+        carryOver = [items objectAtIndex: oldPos++];
+      }
+      else {
+        Item  *newItem = 
+          [[CompoundItem alloc] initWithFirst: [items objectAtIndex:oldPos++]
+                                       second: [items objectAtIndex:oldPos++]];
+        [items replaceObjectAtIndex:curCount++ withObject:newItem];
+      }
+    }
+  } while (curCount > 1 || carryOver != nil);
+  
+  return [items objectAtIndex:0];
+}
+
+
+- (BOOL) buildTreeForDirectory:(DirectoryItem*)dirItem 
+           parentPath:(NSString*)parentPath ref:(FSRef*)ref {
+
+  NSMutableArray  *fileChildren = 
+    [[NSMutableArray alloc] initWithCapacity:128];
+  NSMutableArray  *dirChildren = 
+    [[NSMutableArray alloc] initWithCapacity:32];
+  NSMutableArray  *dirFsRefs = 
+    [[NSMutableArray alloc] initWithCapacity:32];
+
+  NSAutoreleasePool  *localAutoreleasePool = nil;
+  
+  NSString  *path = [parentPath stringByAppendingPathComponent:[dirItem name]];
+  ITEM_SIZE  dirSize = 0;
+  int  i;
+
+  FSIterator iterator;
+  OSStatus result = FSOpenIterator(ref, kFSIterateFlat, &iterator);
+
+  if (result != noErr) {
+    NSLog( @"Couldn't create FSIterator for '%@': Error %i", path, result);
+  }
+  else {
+
+    while ( result == noErr && !abort ) {
+      ItemCount actualCount = 0;
+                
+      result = FSGetCatalogInfoBulk( iterator,
+                                     BULK_CATALOG_REQUEST_SIZE, &actualCount,
+                                     NULL,
+                                     CATALOG_INFO_BITMAP,
+                                     bulkCatalogInfo.catalogInfoArray,
+                                     bulkCatalogInfo.fsRefArray, NULL,
+                                     bulkCatalogInfo.namesArray );
+      
+      if ( actualCount > 16 && localAutoreleasePool == nil) {
+        localAutoreleasePool = [[NSAutoreleasePool alloc] init];
+      }
+      
+      if (result == noErr || result == errFSNoMoreItems) {
+        for (i = 0; i < actualCount; i++) {
+          NSString *childName = 
+            [[NSString alloc] initWithCharacters: 
+                          (unichar *)&bulkCatalogInfo.namesArray[i].unicode
+                          length: bulkCatalogInfo.namesArray[i].length];
+
+          if (bulkCatalogInfo.catalogInfoArray[i].nodeFlags 
+                & kFSNodeIsDirectoryMask) {
+            // A directory node.
+
+            DirectoryItem  *dirChildItem = 
+              [[DirectoryItem alloc] initWithName:childName parent:dirItem];
+              
+            FSRefObject  *refObject = [[FSRefObject alloc] initWithFSRef:
+                                          &(bulkCatalogInfo.fsRefArray[i])];
+
+            [dirChildren addObject:dirChildItem];
+            [dirFsRefs addObject:refObject];
+
+            [dirChildItem release];
+            [refObject release];
+          }
+          else {
+            // A file node.
+            
+            ITEM_SIZE  childSize = 
+              (bulkCatalogInfo.catalogInfoArray[i].dataLogicalSize +
+               bulkCatalogInfo.catalogInfoArray[i].rsrcLogicalSize);
+      
+            FileItem  *fileChildItem =
+              [[FileItem alloc] initWithName:childName parent:dirItem 
+                                  size:childSize];
+
+            [fileChildren addObject:fileChildItem];
+            [fileChildItem release];
+
+            dirSize += childSize;
+          }
+          
+          [childName release];
+        }
+      }
+    }
+    FSCloseIterator(iterator);
+  }
+
+  for (i = [dirFsRefs count]; --i >= 0 && !abort; ) {
+    DirectoryItem  *dirChildItem = [dirChildren objectAtIndex:i];
+    FSRefObject  *refObject = [dirFsRefs objectAtIndex:i];
+    
+    [self buildTreeForDirectory:dirChildItem parentPath:path
+            ref: &(refObject->ref)];
+    
+    dirSize += [dirChildItem itemSize];
+  }
+  
+  Item  *fileTree = [self createTreeForItems:fileChildren];
+  Item  *dirTree = [self createTreeForItems:dirChildren];
+  Item  *contentTree = [CompoundItem compoundItemWithFirst: fileTree 
+                                       second: dirTree];
+
+  [dirItem setDirectoryContents:contentTree size:dirSize];
+  
+  [fileChildren release];
+  [dirChildren release];
+  [dirFsRefs release];
+
+  [localAutoreleasePool release];
+  
+  return !abort;
+}
+
+@end // @implementation TreeBuilder (PrivateMethods)

@@ -14,7 +14,6 @@
 
 - (IBAction) openDirectoryView:(id)sender;
 - (IBAction) rescanDirectoryView:(id)sender;
-- (IBAction) filterDirectoryView:(id)sender;
 - (IBAction) duplicateDirectoryView:(id)sender;
 - (IBAction) twinDirectoryView:(id)sender;
 - (IBAction) saveDirectoryViewImage:(id)sender;

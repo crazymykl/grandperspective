@@ -6,7 +6,6 @@
 #import "SaveImageDialogControl.h"
 #import "EditFilterWindowControl.h"
 #import "ItemPathModel.h"
-#import "TreeFilter.h"
 
 #import "WindowManager.h"
 
@@ -46,9 +45,6 @@
 - (void) editFilterWindowOkAction:(NSNotification*)notification;
 
 - (void) duplicateCurrentWindowSharingPath:(BOOL)sharePathModel;
-
-- (void) duplicateCurrentWindowSharingPath:(BOOL)sharePathModel 
-           filterTest:(NSObject <FileItemTest> *)filterTest;
 
 @end
 
@@ -143,43 +139,6 @@
 }
 
 
-- (IBAction) filterDirectoryView:(id)sender {
-  if (editFilterWindowControl == nil) {
-    // Lazily create it
-    editFilterWindowControl = [[EditFilterWindowControl alloc] init];
-    
-    NSNotificationCenter  *nc = [NSNotificationCenter defaultCenter];
-    [nc addObserver:self selector:@selector(editFilterWindowCancelAction:)
-          name:@"cancelPerformed" object:editFilterWindowControl];
-    [nc addObserver:self selector:@selector(editFilterWindowOkAction:)
-          name:@"okPerformed" object:editFilterWindowControl];
-
-    [[editFilterWindowControl window] setTitle:@"Apply filter"];
-
-    [editFilterWindowControl removeApplyButton];    
-  }
-  
-  DirectoryViewControl  *viewControl = 
-    [[[NSApplication sharedApplication] mainWindow] windowController];
-
-  [editFilterWindowControl representFileItemTest:[viewControl fileItemMask]];
-  
-  int  status = [NSApp runModalForWindow:[editFilterWindowControl window]];
-  [[editFilterWindowControl window] close];
-    
-  if (status == NSRunStoppedResponse) {
-    // get rule from window
-    NSObject <FileItemTest>  *fileItemTest =
-      [editFilterWindowControl createFileItemTest];
-
-    [self duplicateCurrentWindowSharingPath:NO filterTest:fileItemTest];
-  }
-  else {
-    NSAssert(status == NSRunAbortedResponse, @"Unexpected status.");
-  }
-}
-
-
 - (IBAction) duplicateDirectoryView:(id)sender {
   [self duplicateCurrentWindowSharingPath:NO];
 }
@@ -214,12 +173,6 @@
 
 
 - (void) duplicateCurrentWindowSharingPath:(BOOL)sharePathModel {
-  [self duplicateCurrentWindowSharingPath:sharePathModel filterTest:nil];
-}
-
-- (void) duplicateCurrentWindowSharingPath:(BOOL)sharePathModel 
-           filterTest:(NSObject <FileItemTest> *)filterTest {
-           
   DirectoryViewControl  *oldControl = 
     [[[NSApplication sharedApplication] mainWindow] windowController];
   DirectoryItem  *itemTree = [oldControl itemTree];
@@ -230,19 +183,9 @@
     // Share or clone the path model.
     ItemPathModel  *itemPathModel = nil;
 
-    if (filterTest != nil) {
-      TreeFilter  *treeFilter = 
-        [[[TreeFilter alloc] initWithFileItemTest:filterTest] autorelease];
-      itemTree = [treeFilter filterItemTree:itemTree];
-
-      itemPathModel = 
-        [[[ItemPathModel alloc] initWithTree:itemTree] autorelease];
-    }
-    else {
-      [oldControl itemPathModel];
-      if (!sharePathModel) {
-        itemPathModel = [[itemPathModel copy] autorelease];
-      }
+    itemPathModel = [oldControl itemPathModel];
+    if (!sharePathModel) {
+      itemPathModel = [[itemPathModel copy] autorelease];
     }
         
     DirectoryViewControl  *newControl = 
@@ -256,16 +199,8 @@
     [windowManager addWindow:[newControl window] 
                      usingTitle:[[oldControl window] title]];
     
-    if (filterTest == nil) {
-      // Not filtered, so use same mask as old window.
-      [newControl setFileItemMask: [oldControl fileItemMask]];
-      [newControl enableFileItemMask: [oldControl fileItemMaskEnabled]];
-    }
-    else {
-      // void. Don't use a mask, as window is already filtered (and in all
-      // likelihood, the filter was based on the mask of the previous window,
-      // if it had one),
-    }
+    [newControl setFileItemMask: [oldControl fileItemMask]];
+    [newControl enableFileItemMask: [oldControl fileItemMaskEnabled]];
   }
 }
 

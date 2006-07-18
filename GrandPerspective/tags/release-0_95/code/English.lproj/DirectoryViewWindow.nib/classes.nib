@@ -1,0 +1,42 @@
+{
+    IBClasses = (
+        {CLASS = DirectoryView; LANGUAGE = ObjC; SUPERCLASS = NSView; }, 
+        {
+            ACTIONS = {
+                colorMappingChanged = id; 
+                downAction = id; 
+                maskAction = id; 
+                maskCheckBoxChanged = id; 
+                openFileInFinder = id; 
+                upAction = id; 
+            }; 
+            CLASS = DirectoryViewControl; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                colorMappingPopUp = NSPopUpButton; 
+                downButton = NSButton; 
+                itemNameLabel = NSTextField; 
+                itemSizeLabel = NSTextField; 
+                mainView = DirectoryView; 
+                maskCheckBox = NSButton; 
+                openButton = NSButton; 
+                upButton = NSButton; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }, 
+        {CLASS = DummyView; LANGUAGE = ObjC; SUPERCLASS = NSView; }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {abort = id; }; 
+            CLASS = StartupControl; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                progressIndicator = NSProgressIndicator; 
+                progressPanel = NSPanel; 
+                progressText = NSTextField; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

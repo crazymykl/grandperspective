@@ -1,0 +1,278 @@
+======================================================================
+  GrandPerspective Change Log
+======================================================================
+
+----------------------------------------------------------------------
+  Version 0.98, 15-12-2006
+----------------------------------------------------------------------
+
+New functionality:
+- Masking and filtering rules that are created (or modified) by the 
+  user are now stored in the user preferences so that they are
+  available next time the application is run.
+- The default file item tests are now read from the information
+  properties file, instead of being hardcoded in the application.
+- String tests support case-insensitive matching.
+- Now also showing human-friendly file sizes in the Info and Focus
+  panels.
+- Added button for removing all tests from the filter in the
+  "Edit Filter" window.
+
+Minor improvements:
+- The path test now applies to path of the folder where the file item
+  resides (excluding the name of the file itself). This way it better
+  complements the name test.
+- Path strings are cached during filtering or drawing of the file
+  item tree for improved performance.
+- Changed size of main window to 640x480.
+- Internationalized the OK and Cancel buttons of alert panels.
+
+Bug fix:
+- When an image was saved, the "Clown Barf" palette was always used, 
+  irrespective of the palette used by the view. This has been fixed.
+- The CFBundleSignature, CFBundleIdentifier, and CFBundleVersion 
+  properties in Info.plist were not set correctly. This, for instance,
+  meant that preferences were incorrectly associated with the 
+  example com.apple.myCocoaApp application. This has been fixed.
+
+
+----------------------------------------------------------------------
+  Version 0.97 (localized), 10-12-2006
+----------------------------------------------------------------------
+
+New localizations:
+- Japanese, by Chris Li
+- German, by Helge Baumann
+- Dutch, by Erwin Bonsma
+
+
+----------------------------------------------------------------------
+  Version 0.97, 14-11-2006
+----------------------------------------------------------------------
+
+New functionality:
+- There is now a choice of color palettes.
+  - The palettes that can be chosen have been taken from the 
+    ColorSchemer gallery at http://www.colorschemer.com/schemes/.
+    Thanks to the following users for providing one or more color 
+    schemes: copperblue, tumuchtime, Jalle, Nemoflow, and rageforst.
+- Preferences can now be changed and stored. This means that you
+  can change the default color mapping and default color palette.
+- The application has been fully internationalized. This means that
+  localized versions can now be generated.
+  - See LOCALIZATION.TXT for details on how you can help to make
+    GrandPerspective available in your language.
+
+Minor improvements:
+- Zero-sized items are not included in the tree anymore. This 
+  reduces the memory footprint and stops tree paths from being 
+  drawn when the tree has a total size of zero.
+
+Code clean-up:
+- Renamed FileItemHashingOptions to FileItemHashingCollection and
+  more generally made it match the new ColorListCollection class.
+  Also renamed instances of FileItemHashing to colorMapping.
+
+Bug fixes:
+- Closing Filter Window would freeze application (see 1562627)
+- Selecting an empty filter would throw an assertion (see 1562627).
+- It used to be possible for a test that was not available to be 
+  selected anyway, which could cause various anomalous behaviours.
+
+----------------------------------------------------------------------
+  Version 0.96, 12-08-2006
+----------------------------------------------------------------------
+
+Changes since Version 0.95:
+
+- New functionality:
+  - Added ability to filter a directory view window, which generates 
+    a new window with a "filtered view". The filter determines which
+    files are shown in the new window.
+    - If a filter has been applied this is reflected in the window
+      title.
+  - Added a drawer to directory view windows. It has three panels:
+    - An "Info" panel with details about the files that are shown
+      in the view, including: 
+      - the time of scan,
+      - the folder that was scanned, and
+      - details of the filter that has been applied (if any).
+    - A "Display" panel for configuring the way the view is drawn. 
+      Here you can specify:
+      - how files are colored, and
+      - the mask that is used (if any).
+    - A "Focus" panel with details about:
+      - the folder that is currently shown in the view, and
+      - the file that is currently selected.
+
+- Tiny changes:
+  - The button for revealing a file in Finder has been renamed to 
+    "Reveal" (it used to be "Show").
+  - The file coloring options "directory" and "top directory" have 
+    been renamed to "folder" and "top folder" respectively.
+  - Cosmetic changes to the "Edit Filter" window.
+
+- Code cleanup:
+  - The progress panel has been refactored. It is now also used when
+    filtering takes place.
+  - All tasks and executors have been moved to a new "task" folder.
+  - Simplified the code that creates the attributed string for the 
+    selected file.
+  - The contents of PopUpButtons are now set in their nib file 
+    instead of programmatically.
+
+- Bug fix:
+  - Plugged a memory leak in the image drawing code.
+
+
+----------------------------------------------------------------------
+  Version 0.95, 05-07-2006
+----------------------------------------------------------------------
+
+Changes since Version 0.94:
+
+- New functionality:
+  - Added ability to mask files. When a file is masked it is not
+    drawn, but still takes up space in the view. Masking files is 
+    handy for quickly spotting certain types of file.
+    - A mask can be quickly enabled or disabled.
+    - A test for masking can be created quickly by selecting one or
+      more existing rules.
+    - Existing rules can be edited and new ones can be created.
+    - Rules can take the name of the file into account, its size, and 
+      its path.
+    - Rules can be identified by their friendly name, but a full
+      description can optionally also be shown.
+
+- Tiny changes:
+  - Added coloring by "top directory" option as suggested by Adrian 
+    Sampson (ID 1501479).
+  - Made color-mapping choice in directory view a pop-up button.
+  - Added keyboard shortcuts for Re-scan and Filter commands.
+  - The SaveImageDialog is now centered.
+
+- Code cleanup:
+  - The code is now spread across various folders.
+  - Made implementation of TreeLayoutTraverser protocol explicit.
+  - Split BalancingTreeBuilder in two: TreeBuilder and TreeBalancer.
+
+
+----------------------------------------------------------------------
+  Version 0.94, 09-05-2006
+----------------------------------------------------------------------
+
+Changes since Version 0.93:
+
+- New functionality:
+  - There is now a "rescan" command which generates an up-to-date 
+    window given an existing one. You can use this command after you
+    have moved or deleted several files and folders.
+
+- Tiny changes:
+  - Window titles now include the time of the scan and, if needed,
+    an additional number, to make each title unique.
+  - The scan progress panel now shows the name of the folder that is
+    being scanned.
+  - Renamed the "Open" button of the directory view window to "Show".
+  - Renamed the "Scan directory..." command to "Scan Folder...".
+
+- Code clean up:
+  - Generalised the execution of background threads in the new
+    AsynchronousTaskManager class, which is now used for both drawing
+    and rescanning in a background thread. 
+  - The scan progress panel has been moved into a nib of its own,
+    and now has a dedicated control: ScanProgressPanelControl.
+
+- Bug fix:
+  - Fixed the drawing code so that it also runs properly when
+    compiled for Intel Macs. Many thanks to Craig Hughes for his
+    help with this.
+
+
+----------------------------------------------------------------------
+  Version 0.93, 22-01-2006
+----------------------------------------------------------------------
+
+Changes since Version 0.92:
+
+- New functionality:
+  - Selected files can now be opened in Finder. This can be used to 
+    examine files and folders in more detail, and to optionally 
+    remove, move or edit files.
+  - An image of the directory view can now be generated and saved (as
+    a TIFF image).
+
+- Code clean up:
+  - Refactored ItemTreeDrawer into two classes. ItemTreeDrawer now
+    does the basic drawing, and AsynchronousItemTreeDrawer manages
+    drawing in a separate thread.
+
+- Bug fix:
+  - The thread used for drawing in the background is now properly
+    terminated and disposed of when it is not needed anymore.
+
+
+----------------------------------------------------------------------
+  Version 0.92, 10-01-2006
+----------------------------------------------------------------------
+
+Changes since Version 0.91:
+
+- New functionality:
+  - Added a "twin window" command. This is like the "duplicate window" 
+    command, except that navigation of the directory tree in the new
+    window is synchronized with its parent window.
+
+- Improved functionality:
+  - When duplicating a window, the file colouring scheme and the path
+    in the tree are now also copied.
+
+- Code clean up:
+  - Refactored code so that it adheres much better to the MVC pattern.
+
+- Bug fixes:
+  - Fixed bug that would occassionally prevent redrawing of the
+    directory view. (ID 1309819)
+  - Plugged a big memory leak. The directory tree is now actually
+    freed when all windows that refer to it are closed.
+
+
+----------------------------------------------------------------------
+  Version 0.91, 30-09-2005
+----------------------------------------------------------------------
+
+Changes since Version 0.90:
+
+- Now building with ZeroLink disabled, so that the application should
+  actually run on machines other than my own. :-)
+
+- Optimised view drawing. Drawing the tree map of my entire hard drive 
+  contents at 1280x1024 resolution on my Mac Mini now takes only half
+  a second.
+
+
+----------------------------------------------------------------------
+  Version 0.90, 20-09-2005
+----------------------------------------------------------------------
+
+First release of GrandPerspective.
+
+Features:
+
+- A view showing directory trees graphically:
+  - Layout of files using a basic balanced tree building algorithm.
+  - Drawing of files using basic gradient filling.
+
+- Support for different file colouring schemes. Colouring by: 
+  - Directory name (i.e. a hash of the name)
+  - File name (i.e. a hash of the name)
+  - File type (i.e. hash of file extension)
+  - Nothing (all files same colour)
+
+- Selection of a file in the view:
+  - To descend into the directory tree.
+  - To enable copying of file path. 
+
+- Support for multiple windows:
+  - Scan different folder and show in new window.
+  - Duplication of an existing window (to view data differently).
